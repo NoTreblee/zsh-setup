@@ -27,13 +27,13 @@ ZSH config for my personal usecase
 
 ## Installation
 
-```
+```shell
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/NoTreblee/zsh-setup/main/setup-zsh.sh)"
 ```
 
 Or if you prefer to download and run manually:
 
-```
+```shell
 curl -fsSL https://raw.githubusercontent.com/NoTreblee/zsh-setup/main/setup-zsh.sh -o setup-zsh.sh
 chmod +x setup-zsh.sh
 ./setup-zsh.sh
