@@ -399,21 +399,35 @@ fi
 
 EOF
 
-# Set ZSH as default shell
-if [ "$SHELL" != "$ZSH_PATH" ]; then
-    echo "Setting ZSH as default shell..."
-    chsh -s $ZSH_PATH
-    echo "✓ ZSH set as default shell"
-    echo "Please log out and log back in to see changes."
+# Ask about changing default shell
+echo ""
+read -p "Do you want to change the default shell to ZSH? [y/N] " -n 1 -r
+echo ""
+
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if [ "$SHELL" != "$ZSH_PATH" ]; then
+        echo "Setting ZSH as default shell..."
+        chsh -s $ZSH_PATH
+        echo "✓ ZSH set as default shell"
+        echo "You need to log out and log back in for this change to take effect."
+    else
+        echo "ZSH is already your default shell."
+    fi
+else
+    echo "Shell change skipped. You can change it later with: chsh -s $(which zsh)"
 fi
 
-clear
+echo ""
+echo ""
+echo ""
 echo " _      ____ _____ ____  _____ ____  _     _____ _____";
 echo "/ \\  /|/  _ Y__ __Y  __\\/  __//  _ \\/ \\   /  __//  __/";
 echo "| |\\ ||| / \\| / \\ |  \\/||  \\  | | //| |   |  \\  |  \\  ";
 echo "| | \\||| \\_/| | | |    /|  /_ | |_\\\\| |_/\\|  /_ |  /_ ";
 echo "\\_/  \\|\\____/ \\_/ \\_/\\_\\\\____\\\\____/\\____/\\____\\\\____\\";
 echo "                                                      ";
+echo ""
+echo ""
 echo "-------- Configuration completed successfully! -------"
 echo ""
 echo ""
