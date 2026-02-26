@@ -1,3 +1,85 @@
+#!/bin/bash
+# Check if ZSH is installed
+if ! command -v zsh &> /dev/null; then
+    echo "ZSH is not installed. Installing..."
+    
+    # For different distributions
+    if command -v apt-get &> /dev/null; then
+        sudo apt update
+        sudo apt install -y zsh
+    elif command -v dnf &> /dev/null; then
+        sudo dnf install -y zsh
+    elif command -v yum &> /dev/null; then
+        sudo yum install -y zsh
+    elif command -v pacman &> /dev/null; then
+        sudo pacman -S --noconfirm zsh
+    elif command -v brew &> /dev/null; then
+        brew install zsh
+    else
+        echo "Package manager not found. Please install ZSH manually."
+        exit 1
+    fi
+fi
+
+# Get the path to ZSH
+ZSH_PATH=$(which zsh)
+
+# Install Oh My Zsh
+if [ ! -d "$HOME/.oh-my-zsh" ]; then
+    echo "Installing Oh My Zsh..."
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+else
+    echo "Oh My Zsh is already installed."
+fi
+
+# Install plugins
+echo "Installing plugins..."
+
+# Zsh Autosuggestions
+if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions" ]; then
+    git clone https://github.com/zsh-users/zsh-autosuggestions \
+        ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
+    echo "✓ Zsh Autosuggestions installed"
+else
+    echo "✓ Zsh Autosuggestions already installed"
+fi
+
+# Zsh Syntax Highlighting
+if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting" ]; then
+    git clone https://github.com/zsh-users/zsh-syntax-highlighting.git \
+        ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
+    echo "✓ Zsh Syntax Highlighting installed"
+else
+    echo "✓ Zsh Syntax Highlighting already installed"
+fi
+
+# Zsh History Substring Search (optional, but recommended)
+if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-history-substring-search" ]; then
+    git clone https://github.com/zsh-users/zsh-history-substring-search.git \
+        ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-history-substring-search
+    echo "✓ Zsh History Substring Search installed"
+else
+    echo "✓ Zsh History Substring Search already installed"
+fi
+
+# FZF (fuzzy finder) - optional, but very useful
+if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/fzf" ]; then
+    git clone https://github.com/junegunn/fzf.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/fzf
+    ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/fzf/install --all --no-update-rc
+    echo "✓ FZF installed"
+else
+    echo "✓ FZF already installed"
+fi
+
+# Create backup of existing .zshrc
+if [ -f "$HOME/.zshrc" ]; then
+    cp "$HOME/.zshrc" "$HOME/.zshrc.backup.$(date +%Y%m%d_%H%M%S)"
+    echo "✓ Created .zshrc backup"
+fi
+
+# Configure .zshrc
+echo "Configuring .zshrc..."
+cat > ~/.zshrc << EOF
 # ============================================
 # .zshrc - Zsh Configuration
 # ============================================
@@ -49,7 +131,7 @@ plugins=(
     zsh-autosuggestions
     zsh-history-substring-search
     fzf
-    zsh-syntax-highlighting  # MUST BE LAST!
+    zsh-syntax-highlighting
 )
 
 # Load Oh My Zsh
@@ -59,13 +141,13 @@ source $ZSH/oh-my-zsh.sh
 # KEY BINDINGS
 # ============================================
 
-# Word navigation
+# Navigation
 bindkey '^[[1;3D' backward-word   # ALT+Left
 bindkey '^[[1;3C' forward-word    # ALT+Right
 bindkey '^[[1;3A' history-search-backward   # ALT+Up
 bindkey '^[[1;3B' history-search-forward    # ALT+Down
 
-# Word nav - alternative
+# Alt navigation
 bindkey '^[[1;5D' backward-word   # Ctrl+Left
 bindkey '^[[1;5C' forward-word    # Ctrl+Right
 
@@ -427,13 +509,12 @@ export PATH="$HOME/.cargo/bin:$PATH"
 # Customize these paths to your needs
 cdpath=(
     ~
-    ~/Projects
+    ~/projects
     ~/work
-    ~/src
+    ~/dev
     ~/Documents
     ~/Downloads
     ~/go/src
-    ~/Repos
 )
 
 # ============================================
@@ -542,3 +623,40 @@ fi
 if [ -f ~/.zshrc.local ]; then
     source ~/.zshrc.local
 fi
+
+
+EOF
+
+# Ask about changing default shell
+echo ""
+read -p "Do you want to change the default shell to ZSH? [y/N] " -n 1 -r
+echo ""
+
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if [ "$SHELL" != "$ZSH_PATH" ]; then
+        echo "Setting ZSH as default shell..."
+        chsh -s $ZSH_PATH
+        echo "✓ ZSH set as default shell"
+        echo "You need to log out and log back in for this change to take effect."
+    else
+        echo "ZSH is already your default shell."
+    fi
+else
+    echo "Shell change skipped. You can change it later with: chsh -s $(which zsh)"
+fi
+
+echo "-------- Configuration completed successfully! -------"
+echo ""
+echo ""
+echo "Available commands:"
+echo "  • zsh                - run ZSH"
+echo "  • omz update         - update Oh My Zsh"
+echo "  • omz plugin list    - list plugins"
+echo "  • omz plugin enable  - enable plugin"
+echo "  • omz plugin disable - disable plugin"
+echo ""
+echo "Next steps:"
+echo "1. Log out and log back in or run: exec zsh"
+echo "2. Check if plugins are working"
+echo "3. Customize aliases in ~/.zshrc as needed"
+echo ""
