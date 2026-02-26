@@ -1,85 +1,11 @@
-#!/bin/bash
-# Check if ZSH is installed
-if ! command -v zsh &> /dev/null; then
-    echo "ZSH is not installed. Installing..."
-    
-    # For different distributions
-    if command -v apt-get &> /dev/null; then
-        sudo apt update
-        sudo apt install -y zsh
-    elif command -v dnf &> /dev/null; then
-        sudo dnf install -y zsh
-    elif command -v yum &> /dev/null; then
-        sudo yum install -y zsh
-    elif command -v pacman &> /dev/null; then
-        sudo pacman -S --noconfirm zsh
-    elif command -v brew &> /dev/null; then
-        brew install zsh
-    else
-        echo "Package manager not found. Please install ZSH manually."
-        exit 1
-    fi
-fi
+# ============================================
+# .zshrc - Zsh Configuration
+# ============================================
+# Author: [NoTreblee]
+# Description: Feature-rich zsh configuration with Oh My Zsh, plugins, and custom functions
+# Repository: https://github.com/NoTreblee/zsh-setup
+# ============================================
 
-# Get the path to ZSH
-ZSH_PATH=$(which zsh)
-
-# Install Oh My Zsh
-if [ ! -d "$HOME/.oh-my-zsh" ]; then
-    echo "Installing Oh My Zsh..."
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-else
-    echo "Oh My Zsh is already installed."
-fi
-
-# Install plugins
-echo "Installing plugins..."
-
-# Zsh Autosuggestions
-if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions" ]; then
-    git clone https://github.com/zsh-users/zsh-autosuggestions \
-        ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
-    echo "✓ Zsh Autosuggestions installed"
-else
-    echo "✓ Zsh Autosuggestions already installed"
-fi
-
-# Zsh Syntax Highlighting
-if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting" ]; then
-    git clone https://github.com/zsh-users/zsh-syntax-highlighting.git \
-        ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
-    echo "✓ Zsh Syntax Highlighting installed"
-else
-    echo "✓ Zsh Syntax Highlighting already installed"
-fi
-
-# Zsh History Substring Search (optional, but recommended)
-if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-history-substring-search" ]; then
-    git clone https://github.com/zsh-users/zsh-history-substring-search.git \
-        ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-history-substring-search
-    echo "✓ Zsh History Substring Search installed"
-else
-    echo "✓ Zsh History Substring Search already installed"
-fi
-
-# FZF (fuzzy finder) - optional, but very useful
-if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/fzf" ]; then
-    git clone https://github.com/junegunn/fzf.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/fzf
-    ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/fzf/install --all --no-update-rc
-    echo "✓ FZF installed"
-else
-    echo "✓ FZF already installed"
-fi
-
-# Create backup of existing .zshrc
-if [ -f "$HOME/.zshrc" ]; then
-    cp "$HOME/.zshrc" "$HOME/.zshrc.backup.$(date +%Y%m%d_%H%M%S)"
-    echo "✓ Created .zshrc backup"
-fi
-
-# Configure .zshrc
-echo "Configuring .zshrc..."
-cat > ~/.zshrc << EOF
 # Path to oh-my-zsh installation
 export ZSH="$HOME/.oh-my-zsh"
 
@@ -104,7 +30,16 @@ ENABLE_CORRECTION="true"
 # Show red dots while waiting for completion
 COMPLETION_WAITING_DOTS="true"
 
-# Plugins (remember that zsh-syntax-highlighting must be last!)
+# ============================================
+# PLUGINS
+# ============================================
+# Remember that zsh-syntax-highlighting must be last!
+# Install plugins with:
+#   git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
+#   git clone https://github.com/zsh-users/zsh-history-substring-search ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-history-substring-search
+#   git clone https://github.com/zsh-users/zsh-syntax-highlighting ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
+# ============================================
+
 plugins=(
     git
     sudo
@@ -121,6 +56,38 @@ plugins=(
 source $ZSH/oh-my-zsh.sh
 
 # ============================================
+# KEY BINDINGS
+# ============================================
+
+# Word navigation
+bindkey '^[[1;3D' backward-word   # ALT+Left
+bindkey '^[[1;3C' forward-word    # ALT+Right
+bindkey '^[[1;3A' history-search-backward   # ALT+Up
+bindkey '^[[1;3B' history-search-forward    # ALT+Down
+
+# Word nav - alternative
+bindkey '^[[1;5D' backward-word   # Ctrl+Left
+bindkey '^[[1;5C' forward-word    # Ctrl+Right
+
+# Home/End keys
+bindkey '^[[H' beginning-of-line   # Home
+bindkey '^[[F' end-of-line         # End
+bindkey '^[[1~' beginning-of-line  # Home (alternative)
+bindkey '^[[4~' end-of-line        # End (alternative)
+
+# Delete keys
+bindkey '^[[3~' delete-char        # Delete
+bindkey '^H' backward-delete-char  # Backspace
+
+# Line editing shortcuts
+bindkey '^A' beginning-of-line      # Ctrl+A
+bindkey '^E' end-of-line            # Ctrl+E
+bindkey '^K' kill-line              # Ctrl+K
+bindkey '^U' kill-whole-line        # Ctrl+U
+bindkey '^W' backward-kill-word     # Ctrl+W
+bindkey '^Y' yank                   # Ctrl+Y
+
+# ============================================
 # PLUGIN CONFIGURATION
 # ============================================
 
@@ -133,8 +100,6 @@ bindkey '^ ' autosuggest-accept  # Ctrl+Space - accept suggestion
 bindkey '^f' autosuggest-execute # Ctrl+F - execute suggestion
 
 # Zsh History Substring Search
-bindkey '^[[A' history-substring-search-up    # Up arrow
-bindkey '^[[B' history-substring-search-down  # Down arrow
 bindkey '^P' history-substring-search-up      # Ctrl+P
 bindkey '^N' history-substring-search-down    # Ctrl+N
 HISTORY_SUBSTRING_SEARCH_ENSURE_UNIQUE=1
@@ -206,6 +171,20 @@ zstyle ':completion:*' menu select
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|[._-]=* r:|=*' 'l:|=* r:|=*'
 zstyle ':completion:*' list-colors ''
 zstyle ':completion:*:*:kill:*:processes' list-colors '=(#b) #([0-9]#)*=0=01;31'
+zstyle ':completion:*' use-cache on
+zstyle ':completion:*' cache-path ~/.zsh/cache
+zstyle ':completion:*' complete-options true
+zstyle ':completion:*' file-sort modification
+zstyle ':completion:*' group-name ''
+zstyle ':completion:*:descriptions' format '%B%d%b'
+zstyle ':completion:*:messages' format '%d'
+zstyle ':completion:*:warnings' format '%BNo matches for: %d%b'
+zstyle ':completion:*:default' list-colors ${(s.:.)LS_COLORS}
+zstyle ':completion:*' list-prompt '%SAt %p: Hit TAB for more, or the character to insert%s'
+zstyle ':completion:*' select-prompt '%SScrolling active: current selection at %p%s'
+
+# Create cache directory if not exists
+[[ -d ~/.zsh/cache ]] || mkdir -p ~/.zsh/cache
 
 # ============================================
 # ALIASES
@@ -231,6 +210,7 @@ alias .....='cd ../../../..'
 alias ~='cd ~'
 alias -- -='cd -'
 alias mkdir='mkdir -p'
+
 # Git
 alias gs='git status'
 alias ga='git add'
@@ -262,13 +242,16 @@ alias dim='docker images'
 alias dst='docker stats'
 alias dlg='docker logs'
 
-# System
-alias update='sudo apt update && sudo apt upgrade -y'  # for Debian/Ubuntu
-# For other distributions:
-# alias update='sudo dnf upgrade'        # Fedora
-# alias update='sudo yum update'         # CentOS/RHEL
-# alias update='sudo pacman -Syu'        # Arch
-alias clean='sudo apt autoremove && sudo apt autoclean'
+# System - autodetect package manager
+if command -v apt &> /dev/null; then
+    alias update='sudo apt update && sudo apt upgrade -y'
+    alias clean='sudo apt autoremove && sudo apt autoclean'
+elif command -v dnf &> /dev/null; then
+    alias update='sudo dnf upgrade'
+elif command -v pacman &> /dev/null; then
+    alias update='sudo pacman -Syu'
+fi
+
 alias reboot='sudo reboot'
 alias shutdown='sudo shutdown -h now'
 alias ports='netstat -tulanp'
@@ -283,13 +266,19 @@ alias ln='ln -i'
 alias c='clear'
 alias h='history'
 alias j='jobs -l'
-alias path='echo -e ${PATH//:/\n}'
+alias path='echo -e ${PATH//:/\\n}'
 alias now='date +"%T"'
 alias nowdate='date +"%d-%m-%Y"'
 
 # FZF
 alias fzfp='fzf --preview "bat --color=always {}"'
 alias fzfh='history | fzf'
+
+# FZF integration
+if [ -f ~/.fzf.zsh ]; then
+    source ~/.fzf.zsh
+    bindkey '^R' fzf-history-widget
+fi
 
 # Micro editor
 if command -v micro &> /dev/null; then
@@ -330,7 +319,7 @@ myip() {
 
 # Weather
 weather() {
-    curl -s "wttr.in/${1:-Warsaw}?0"
+    curl -s "wttr.in/Warsaw?0"
 }
 
 # Encrypt file
@@ -354,14 +343,61 @@ decrypt() {
 }
 
 # ============================================
+# FUZZY CD WITH FZF
+# ============================================
+
+# cd into directory with fzf
+fcd() {
+    local dir
+    dir=$(find ${1:-.} -type d 2>/dev/null | fzf +m) && cd "$dir"
+}
+
+# cd into parent directory with fzf
+fcd_up() {
+    local dir
+    dir=$(printf "%s\n" .. */ | fzf +m -q "$1") && cd "$dir"
+}
+
+# ============================================
+# FZF FILE PREVIEW
+# ============================================
+
+# Edit file with fzf
+fe() {
+    local files
+    IFS=$'\n' files=($(fzf --preview 'bat --color=always {}' --multi))
+    [[ -n "$files" ]] && ${EDITOR:-vim} "${files[@]}"
+}
+
+# Open file with default app
+fo() {
+    local out file key
+    IFS=$'\n' out=($(fzf --preview 'bat --color=always {}' --query="$1" --exit-0 --expect=ctrl-o,ctrl-e))
+    key=$(head -1 <<< "$out")
+    file=$(head -2 <<< "$out" | tail -1)
+    if [ -n "$file" ]; then
+        [ "$key" = ctrl-o ] && xdg-open "$file" || ${EDITOR:-vim} "$file"
+    fi
+}
+
+# ============================================
+# HISTORY SEARCH WITH FZF
+# ============================================
+
+fh() {
+    print -z $( ([ -n "$ZSH_NAME" ] && fc -l 1 || history) | fzf +s --tac | sed -E 's/ *[0-9]*\*? *//' | sed -E 's/^\s+//' )
+}
+
+# ============================================
 # PATHS AND ENVIRONMENT VARIABLES
 # ============================================
 
-# Add directories to PATH
-export PATH="$HOME/.local/bin:$PATH"
+# PATH setup
+export PATH="$HOME/.local/bin"
 export PATH="$HOME/bin:$PATH"
-export PATH="/usr/local/bin:$PATH"
 export PATH="/usr/local/sbin:$PATH"
+export PATH="/usr/local/bin:$PATH"
+export PATH="/usr/bin:$PATH"
 
 # Language
 export LANG=en_US.UTF-8
@@ -373,19 +409,128 @@ export PYTHONDONTWRITEBYTECODE=1
 
 # Node.js
 export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # Load nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # Load nvm completion
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
 
 # Go
 export GOPATH="$HOME/go"
-export PATH="$GOPATH/bin:$PATH"
+export PATH="$HOME/go/bin:$PATH"
 
 # Rust
 export PATH="$HOME/.cargo/bin:$PATH"
 
-# Starship Prompt (if installed)
+# ============================================
+# CDPATH - EASIER NAVIGATION
+# ============================================
+
+# cdpath allows you to cd into subdirectories from anywhere
+# Customize these paths to your needs
+cdpath=(
+    ~
+    ~/Projects
+    ~/work
+    ~/src
+    ~/Documents
+    ~/Downloads
+    ~/go/src
+    ~/Repos
+)
+
+# ============================================
+# TERMINAL TITLE
+# ============================================
+
+# Set terminal title to current command
+precmd() {
+    print -Pn "\e]0;%~\a"
+}
+
+preexec() {
+    print -Pn "\e]0;%~: $1\a"
+}
+
+# ============================================
+# AUTO LS AFTER CD
+# ============================================
+
+# Automatically list directory contents after cd
+chpwd() {
+    if [[ -t 1 ]] && [[ $(ls -1 | wc -l) -lt 50 ]]; then
+        ls --color=auto
+    fi
+}
+
+# ============================================
+# HISTORY IGNORE
+# ============================================
+
+# Ignore these commands in history
+HISTORY_IGNORE="(ls|ll|la|cd|pwd|exit|clear|history|reload|zshrc)"
+
+# ============================================
+# COMMAND TIMER
+# ============================================
+
+# Show command duration if > 5 seconds
+preexec() {
+    timer=${timer:-$SECONDS}
+}
+
+precmd() {
+    if [ $timer ]; then
+        duration=$(($SECONDS - $timer))
+        if [ $duration -gt 5 ]; then
+            echo -e "\033[1;33m⏱  Took ${duration}s\033[0m"
+        fi
+        unset timer
+    fi
+}
+
+# ============================================
+# COLORED MAN PAGES
+# ============================================
+
+export LESS_TERMCAP_mb=$'\e[1;32m'
+export LESS_TERMCAP_md=$'\e[1;34m'
+export LESS_TERMCAP_me=$'\e[0m'
+export LESS_TERMCAP_so=$'\e[01;33m'
+export LESS_TERMCAP_se=$'\e[0m'
+export LESS_TERMCAP_us=$'\e[1;4;31m'
+export LESS_TERMCAP_ue=$'\e[0m'
+
+# ============================================
+# CLIPBOARD ALIASES
+# ============================================
+
+if command -v xclip &> /dev/null; then
+    alias pbcopy='xclip -selection clipboard'
+    alias pbpaste='xclip -selection clipboard -o'
+elif command -v wl-copy &> /dev/null; then
+    alias pbcopy='wl-copy'
+    alias pbpaste='wl-paste'
+fi
+
+# ============================================
+# QUICK ZSHRC EDITING
+# ============================================
+
+alias zshrc='$EDITOR ~/.zshrc'
+alias reload='source ~/.zshrc && echo "✓ .zshrc reloaded"'
+
+# ============================================
+# STARSHIP PROMPT
+# ============================================
+
 if command -v starship &> /dev/null; then
     eval "$(starship init zsh)"
+fi
+
+# ============================================
+# SYSTEM INFO (pfetch)
+# ============================================
+
+if command -v pfetch &> /dev/null; then
+    pfetch
 fi
 
 # ============================================
@@ -393,43 +538,7 @@ fi
 # ============================================
 
 # Load local configuration if exists
+# Use ~/.zshrc.local for your private settings (API keys, custom aliases, etc.)
 if [ -f ~/.zshrc.local ]; then
     source ~/.zshrc.local
 fi
-
-EOF
-
-# Ask about changing default shell
-echo ""
-read -p "Do you want to change the default shell to ZSH? [y/N] " -n 1 -r
-echo ""
-
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    if [ "$SHELL" != "$ZSH_PATH" ]; then
-        echo "Setting ZSH as default shell..."
-        chsh -s $ZSH_PATH
-        echo "✓ ZSH set as default shell"
-        echo "You need to log out and log back in for this change to take effect."
-    else
-        echo "ZSH is already your default shell."
-    fi
-else
-    echo "Shell change skipped. You can change it later with: chsh -s $(which zsh)"
-fi
-
-echo "-------- Configuration completed successfully! -------"
-echo ""
-echo ""
-echo "Available commands:"
-echo "  • zsh                - run ZSH"
-echo "  • omz update         - update Oh My Zsh"
-echo "  • omz plugin list    - list plugins"
-echo "  • omz plugin enable  - enable plugin"
-echo "  • omz plugin disable - disable plugin"
-echo ""
-echo "Next steps:"
-echo "1. Log out and log back in or run: exec zsh"
-echo "2. Check if plugins are working"
-echo "3. Customize aliases in ~/.zshrc as needed"
-echo ""
-
