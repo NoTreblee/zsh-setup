@@ -1,8 +1,6 @@
 ## zsh-setup
 ZSH config for my personal usecase
 
-> [!CAUTION]
-> This script assumes that you have Micro installed
 
 ## Including
 *    ZSH Installation: Automatically installs ZSH if not present
