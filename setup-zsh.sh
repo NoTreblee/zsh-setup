@@ -564,7 +564,7 @@ echo "✓ .zshrc written"
 # ============================================
 
 echo ""
-read -p "Change default shell to ZSH? [y/N] " -n 1 -r
+[[ "${CI:-false}" == "true" ]] && REPLY="n" || read -p "Change default shell to ZSH? [y/N] " -n 1 -r
 echo ""
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then
