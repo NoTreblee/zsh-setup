@@ -1,0 +1,28 @@
+name: Integration Test
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - ubuntu:24.04
+          - debian:bookworm
+          - fedora:41
+    container:
+      image: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          if command -v apt-get &>/dev/null; then
+            apt-get update && apt-get install -y curl git sudo
+          elif command -v dnf &>/dev/null; then
+            dnf install -y curl git sudo
+          fi
+      - name: Run setup script (non-interactive)
+        run: bash setup-zsh.sh
+        env:
+          REPLY: n
