@@ -154,33 +154,6 @@ else
 fi
 
 # ============================================
-# BAT
-# ============================================
-
-if ! command -v bat &>/dev/null; then
-    echo "Installing bat..."
-    case "$PKG_MANAGER" in
-        termux) install_pkg bat ;;
-        apt)    install_pkg bat ;;
-        dnf)    install_pkg bat ;;
-        pacman) install_pkg bat ;;
-        zypper) install_pkg bat ;;
-        brew)   install_pkg bat ;;
-        yum)
-            ;;
-    esac
-    echo "✓ bat installed"
-else
-    echo "✓ bat already installed"
-fi
-
-# On Debian/Ubuntu bat binary may be installed as 'batcat' due to name conflict
-BAT_CMD="bat"
-if ! command -v bat &>/dev/null && command -v batcat &>/dev/null; then
-    BAT_CMD="batcat"
-fi
-
-# ============================================
 # MICRO
 # ============================================
 
