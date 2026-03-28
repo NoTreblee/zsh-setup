@@ -81,7 +81,7 @@ else
     echo "✓ ZSH already installed"
 fi
 
-ZSH_PATH=$(which zsh)
+ZSH_PATH=$(command -v zsh)
 
 # ============================================
 # OH MY ZSH
@@ -580,7 +580,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo "ZSH is already your default shell."
     fi
 else
-    echo "Skipped. To change later: chsh -s $(which zsh)"
+    echo "Skipped. To change later: chsh -s $(command -v zsh)"
 fi
 
 # ============================================
