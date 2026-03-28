@@ -167,12 +167,6 @@ if ! command -v bat &>/dev/null; then
         zypper) install_pkg bat ;;
         brew)   install_pkg bat ;;
         yum)
-            # bat not in standard yum repos; try cargo as fallback
-            if command -v cargo &>/dev/null; then
-                cargo install bat
-            else
-                echo "  ⚠ bat not available for yum and cargo not found. Skipping."
-            fi
             ;;
     esac
     echo "✓ bat installed"
