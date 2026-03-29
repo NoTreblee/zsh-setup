@@ -564,12 +564,14 @@ echo "✓ .zshrc written"
 # ============================================
 
 echo ""
-if [[ "${CI:-false}" == "true" ]]; then REPLY="n"; else read -p "Change default shell to ZSH? [y/N] " -n 1 -r; fi
+if [[ "${CI:-false}" == "true" ]]; then REPLY="n"; else read -rp "Change default shell to ZSH? [y/N] " -n 1; fi
 echo ""
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    if [ "$SHELL" != "$ZSH_PATH" ]; then
-        if $IS_TERMUX; then
+    if [ "$SHELL" != "$ZSH_PATH" ]; 
+then
+        if $IS_TERMUX; 
+then
             chsh -s zsh 2>/dev/null || echo "  ⚠ In Termux run: chsh -s zsh manually if needed."
         else
             chsh -s "$ZSH_PATH"
