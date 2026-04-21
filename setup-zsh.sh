@@ -10,10 +10,12 @@ if [ -n "$TERMUX_VERSION" ] || [ -d "/data/data/com.termux" ]; then
     IS_TERMUX=true
 fi
 
-# Package manager detection
+# Package manager detection with Alpine Linux support
 PKG_MANAGER=""
 if $IS_TERMUX; then
     PKG_MANAGER="termux"
+elif command -v apk &>/dev/null; then
+    PKG_MANAGER="apk"
 elif command -v apt-get &>/dev/null; then
     PKG_MANAGER="apt"
 elif command -v dnf &>/dev/null; then
@@ -36,6 +38,7 @@ install_pkg() {
     echo "  → Installing $*..."
     case "$PKG_MANAGER" in
         termux) pkg install -y "$@" ;;
+        apk)    sudo apk add "$@" ;;
         apt)    sudo apt-get install -y "$@" ;;
         dnf)    sudo dnf install -y "$@" ;;
         yum)    sudo yum install -y "$@" ;;
@@ -49,8 +52,13 @@ install_pkg() {
 update_pkg_lists() {
     case "$PKG_MANAGER" in
         termux) pkg update -y ;;
+        apk)    apk update ;;
         apt)    sudo apt-get update ;;
-        dnf|yum|zypper|pacman|brew) ;; # not needed / handled by install
+        dnf)    sudo dnf makecache ;;
+        yum)    sudo yum makecache ;;
+        pacman) sudo pacman -Sy ;;
+        zypper) sudo zypper refresh ;;
+        brew)   brew update ;;
     esac
 }
 
@@ -99,34 +107,31 @@ fi
 # PLUGINS
 # ============================================
 
+update_plugin() {
+    local name="$1"
+    local url="$2"
+    local plugin_path="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/$name"
+    
+    if [ ! -d "$plugin_path" ]; then
+        echo "Installing $name..."
+        git clone "$url" "$plugin_path"
+        echo "✓ $name installed"
+    else
+        echo "Updating $name..."
+        (cd "$plugin_path" && git pull --rebase && git submodule update --init --recursive) || echo "  ⚠ Failed to update $name (non-fatal)"
+    fi
+}
+
 echo "Installing ZSH plugins..."
 
 # zsh-autosuggestions
-if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions" ]; then
-    git clone https://github.com/zsh-users/zsh-autosuggestions \
-        "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions"
-    echo "✓ zsh-autosuggestions installed"
-else
-    echo "✓ zsh-autosuggestions already installed"
-fi
+update_plugin "zsh-autosuggestions" "https://github.com/zsh-users/zsh-autosuggestions"
 
 # zsh-syntax-highlighting
-if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting" ]; then
-    git clone https://github.com/zsh-users/zsh-syntax-highlighting.git \
-        "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting"
-    echo "✓ zsh-syntax-highlighting installed"
-else
-    echo "✓ zsh-syntax-highlighting already installed"
-fi
+update_plugin "zsh-syntax-highlighting" "https://github.com/zsh-users/zsh-syntax-highlighting.git"
 
 # zsh-history-substring-search
-if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-history-substring-search" ]; then
-    git clone https://github.com/zsh-users/zsh-history-substring-search.git \
-        "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-history-substring-search"
-    echo "✓ zsh-history-substring-search installed"
-else
-    echo "✓ zsh-history-substring-search already installed"
-fi
+update_plugin "zsh-history-substring-search" "https://github.com/zsh-users/zsh-history-substring-search.git"
 
 # ============================================
 # FZF
@@ -185,6 +190,7 @@ if ! command -v starship &>/dev/null; then
     echo "Installing starship..."
     case "$PKG_MANAGER" in
         termux) install_pkg starship ;;
+        apk)    install_pkg starship ;;
         brew)   install_pkg starship ;;
         *)
             # Official installer works on all Linux distros
@@ -196,6 +202,36 @@ else
     echo "✓ starship already installed"
 fi
 
+# Generate starship.toml if it doesn't exist
+if [ ! -f "$HOME/.config/starship.toml" ]; then
+    mkdir -p "$HOME/.config"
+    cat > "$HOME/.config/starship.toml" <<EOF
+# Starship prompt configuration
+
+[character]
+success_symbol = "[$](bold green)"
+error_symbol = "[$](bold red)"
+
+[directory]
+truncation_length = 3
+truncate_to_repo = true
+style = "bold purple"
+format = "in [$path](bold purple) [$readable_path](bold cyan) [$readonly](bold red)"
+
+[git_branch]
+symbol = "branch="
+style = "bold 04d"
+
+[git_status]
+style = "bold 04d"
+
+[pkg]
+symbol = "📦 "
+style = "bold 008"
+EOF
+    echo "✓ Created ~/.config/starship.toml"
+fi
+
 # ============================================
 # BACKUP EXISTING .zshrc
 # ============================================
@@ -204,6 +240,10 @@ if [ -f "$HOME/.zshrc" ]; then
     BACKUP="$HOME/.zshrc.backup.$(date +%Y%m%d_%H%M%S)"
     cp "$HOME/.zshrc" "$BACKUP"
     echo "✓ Backed up existing .zshrc → $BACKUP"
+    
+    # Cleanup old backups (older than 30 days)
+    find "$HOME" -maxdepth 1 -name ".zshrc.backup.*" -type f -mtime +30 -delete 2>/dev/null || true
+    echo "  → Cleaned up backups older than 30 days"
 fi
 
 # ============================================
@@ -841,9 +881,67 @@ fi
 # LOCAL OVERRIDES
 # ==============================================================================
 
-[ -f ~/.zshrc.local ] && source ~/.zshrc.local
-alias get_idf=". ~/esp/esp-idf/export.sh"
+# Create ~/.zshrc.local template if it doesn't exist
+if [ ! -f "$HOME/.zshrc.local" ]; then
+    cat > "$HOME/.zshrc.local" << 'EOF'
+# ~/.zshrc.local — Your custom settings
+# ============================================
+# Add your own aliases, PATH modifications, functions, etc.
+# This file is sourced at the end of the main .zshrc
 
+# Example:
+# export MY_CUSTOM_VAR="value"
+# alias myalias="my command"
+# myfunc() { echo "Hello from local!" }
+EOF
+    echo "✓ Created ~/.zshrc.local (template)"
+fi
+
+[ -f "$HOME/.zshrc.local" ] && source "$HOME/.zshrc.local"
+echo "✓ Sourced ~/.zshrc.local"
+
+# ==============================================================================
+# FZF OPTIONAL INTEGRATION
+# ==============================================================================
+
+if command -v fzf &>/dev/null; then
+    [ -f "$HOME/.fzf.zsh" ] && source "$HOME/.fzf.zsh"
+    echo "✓ fzf shell integration enabled"
+fi
+
+# ==============================================================================
+# DIRENV OPTIONAL INTEGRATION
+# ==============================================================================
+
+if command -v direnv &>/dev/null; then
+    eval "$(direnv hook zsh)"
+    echo "✓ direnv integration enabled"
+fi
+
+# ==============================================================================
+# NVIM OPTIONAL INTEGRATION (EDITOR override)
+# ==============================================================================
+
+if command -v nvim &>/dev/null; then
+    export EDITOR='nvim'
+    export VISUAL='nvim'
+    alias vi='nvim'
+    alias vim='nvim'
+    echo "✓ nvim editor preferred"
+fi
+
+# ==============================================================================
+# GIT CONFIGURATION
+# ==============================================================================
+
+if command -v git &>/dev/null; then
+    if ! git config --global user.name &>/dev/null; then
+        echo "⚠ git user.name not configured. Run: git config --global user.name \"Your Name\""
+    fi
+    if ! git config --global user.email &>/dev/null; then
+        echo "⚠ git user.email not configured. Run: git config --global user.email \"you@example.com\""
+    fi
+fi
 
 EOF
 
@@ -873,6 +971,43 @@ then
     fi
 else
     echo "Skipped. To change later: chsh -s $(command -v zsh)"
+fi
+
+# ============================================
+# OPTIONAL EXTRAS (eza, bat, fd, rg, zoxide)
+# ============================================
+
+if [[ "${EXTRAS:-}" == "1" || "${EXTRAS:-}" == "true" ]]; then
+    echo ""
+    echo "=== Installing optional extras ==="
+    
+    # eza (modern ls)
+    if ! command -v eza &>/dev/null; then
+        install_pkg eza
+    fi
+    
+    # bat (modern cat)
+    if ! command -v bat &>/dev/null; then
+        install_pkg bat
+    fi
+    
+    # fd (fast find)
+    if ! command -v fd &>/dev/null; then
+        install_pkg fd
+    fi
+    
+    # ripgrep (fast grep)
+    if ! command -v rg &>/dev/null; then
+        install_pkg ripgrep
+    fi
+    
+    # zoxide (smart cd)
+    if ! command -v zoxide &>/dev/null; then
+        install_pkg zoxide
+    fi
+    
+    echo "✓ Optional extras installed"
+    echo "  Run: source ~/.zshrc to enable aliases"
 fi
 
 # ============================================
