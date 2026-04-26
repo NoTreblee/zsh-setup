@@ -35,7 +35,7 @@ fi
 
 # Wrapper for installing packages
 install_pkg() {
-    echo "  → Installing $*..."
+    echo "  -> Installing $*..."
     case "$PKG_MANAGER" in
         termux) pkg install -y "$@" ;;
         apk)    sudo apk add "$@" ;;
@@ -75,18 +75,10 @@ update_pkg_lists
 
 if ! command -v zsh &>/dev/null; then
     echo "Installing ZSH..."
-    case "$PKG_MANAGER" in
-        termux) install_pkg zsh ;;
-        apt)    install_pkg zsh ;;
-        dnf)    install_pkg zsh ;;
-        yum)    install_pkg zsh ;;
-        pacman) install_pkg zsh ;;
-        zypper) install_pkg zsh ;;
-        brew)   install_pkg zsh ;;
-    esac
-    echo "✓ ZSH installed"
+    install_pkg zsh
+    echo "ok ZSH installed"
 else
-    echo "✓ ZSH already installed"
+    echo "ok ZSH already installed"
 fi
 
 ZSH_PATH=$(command -v zsh)
@@ -98,9 +90,9 @@ ZSH_PATH=$(command -v zsh)
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
     echo "Installing Oh My Zsh..."
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-    echo "✓ Oh My Zsh installed"
+    echo "ok Oh My Zsh installed"
 else
-    echo "✓ Oh My Zsh already installed"
+    echo "ok Oh My Zsh already installed"
 fi
 
 # ============================================
@@ -111,26 +103,20 @@ update_plugin() {
     local name="$1"
     local url="$2"
     local plugin_path="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/$name"
-    
+
     if [ ! -d "$plugin_path" ]; then
         echo "Installing $name..."
         git clone "$url" "$plugin_path"
-        echo "✓ $name installed"
+        echo "ok $name installed"
     else
         echo "Updating $name..."
-        (cd "$plugin_path" && git pull --rebase && git submodule update --init --recursive) || echo "  ⚠ Failed to update $name (non-fatal)"
+        (cd "$plugin_path" && git pull --rebase && git submodule update --init --recursive) || echo "  ! Failed to update $name (non-fatal)"
     fi
 }
 
 echo "Installing ZSH plugins..."
-
-# zsh-autosuggestions
-update_plugin "zsh-autosuggestions" "https://github.com/zsh-users/zsh-autosuggestions"
-
-# zsh-syntax-highlighting
-update_plugin "zsh-syntax-highlighting" "https://github.com/zsh-users/zsh-syntax-highlighting.git"
-
-# zsh-history-substring-search
+update_plugin "zsh-autosuggestions"        "https://github.com/zsh-users/zsh-autosuggestions"
+update_plugin "zsh-syntax-highlighting"    "https://github.com/zsh-users/zsh-syntax-highlighting.git"
 update_plugin "zsh-history-substring-search" "https://github.com/zsh-users/zsh-history-substring-search.git"
 
 # ============================================
@@ -140,22 +126,17 @@ update_plugin "zsh-history-substring-search" "https://github.com/zsh-users/zsh-h
 if ! command -v fzf &>/dev/null; then
     echo "Installing fzf..."
     case "$PKG_MANAGER" in
-        termux) install_pkg fzf ;;
-        apt)    install_pkg fzf ;;
-        dnf)    install_pkg fzf ;;
-        pacman) install_pkg fzf ;;
-        zypper) install_pkg fzf ;;
+        termux|apt|dnf|pacman|zypper) install_pkg fzf ;;
         yum|brew)
-            # fzf not always in yum repos; use git install as fallback
             if ! install_pkg fzf 2>/dev/null; then
                 git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
                 ~/.fzf/install --all --no-update-rc --no-bash --no-fish
             fi
             ;;
     esac
-    echo "✓ fzf installed"
+    echo "ok fzf installed"
 else
-    echo "✓ fzf already installed"
+    echo "ok fzf already installed"
 fi
 
 # ============================================
@@ -165,21 +146,15 @@ fi
 if ! command -v micro &>/dev/null; then
     echo "Installing micro..."
     case "$PKG_MANAGER" in
-        termux) install_pkg micro ;;
-        apt)    install_pkg micro ;;
-        dnf)    install_pkg micro ;;
-        pacman) install_pkg micro ;;
-        zypper) install_pkg micro ;;
-        brew)   install_pkg micro ;;
+        termux|apt|dnf|pacman|zypper|brew) install_pkg micro ;;
         yum)
-            # micro not in standard yum repos; use official installer
             curl https://getmic.ro | bash
             sudo mv micro /usr/local/bin/ 2>/dev/null || mv micro "$HOME/.local/bin/"
             ;;
     esac
-    echo "✓ micro installed"
+    echo "ok micro installed"
 else
-    echo "✓ micro already installed"
+    echo "ok micro already installed"
 fi
 
 # ============================================
@@ -189,23 +164,20 @@ fi
 if ! command -v starship &>/dev/null; then
     echo "Installing starship..."
     case "$PKG_MANAGER" in
-        termux) install_pkg starship ;;
-        apk)    install_pkg starship ;;
-        brew)   install_pkg starship ;;
+        termux|apk|brew) install_pkg starship ;;
         *)
-            # Official installer works on all Linux distros
             curl -sS https://starship.rs/install.sh | sh -s -- --yes
             ;;
     esac
-    echo "✓ starship installed"
+    echo "ok starship installed"
 else
-    echo "✓ starship already installed"
+    echo "ok starship already installed"
 fi
 
 # Generate starship.toml if it doesn't exist
 if [ ! -f "$HOME/.config/starship.toml" ]; then
     mkdir -p "$HOME/.config"
-    cat > "$HOME/.config/starship.toml" <<EOF
+    cat > "$HOME/.config/starship.toml" << 'STARSHIPEOF'
 # Starship prompt configuration
 
 [character]
@@ -226,10 +198,10 @@ style = "bold 04d"
 style = "bold 04d"
 
 [pkg]
-symbol = "📦 "
+symbol = "pkg "
 style = "bold 008"
-EOF
-    echo "✓ Created ~/.config/starship.toml"
+STARSHIPEOF
+    echo "ok Created ~/.config/starship.toml"
 fi
 
 # ============================================
@@ -239,22 +211,21 @@ fi
 if [ -f "$HOME/.zshrc" ]; then
     BACKUP="$HOME/.zshrc.backup.$(date +%Y%m%d_%H%M%S)"
     cp "$HOME/.zshrc" "$BACKUP"
-    echo "✓ Backed up existing .zshrc → $BACKUP"
-    
-    # Cleanup old backups (older than 30 days)
+    echo "ok Backed up existing .zshrc -> $BACKUP"
     find "$HOME" -maxdepth 1 -name ".zshrc.backup.*" -type f -mtime +30 -delete 2>/dev/null || true
-    echo "  → Cleaned up backups older than 30 days"
 fi
 
 # ============================================
 # WRITE .zshrc
 # ============================================
+# NOTE: Heredoc uses quoted 'EOF' so bash does NOT expand anything inside.
+# All $VAR / $() expressions are written literally and evaluated at zsh runtime.
 
 echo "Writing .zshrc..."
 
-cat > ~/.zshrc << EOF
+cat > ~/.zshrc << 'EOF'
 # ==============================================================================
-# .zshrc — generated by setup-zsh.sh
+# .zshrc -- generated by setup-zsh.sh
 # ==============================================================================
 
 export ZSH="$HOME/.oh-my-zsh"
@@ -268,7 +239,7 @@ DISABLE_LS_COLORS="false"
 ENABLE_CORRECTION="true"
 COMPLETION_WAITING_DOTS="true"
 
-# Plugins — zsh-syntax-highlighting MUST be last
+# Plugins -- zsh-syntax-highlighting MUST be last
 plugins=(
     git
     sudo
@@ -296,8 +267,8 @@ ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#8a8a8a,bold"
 ZSH_AUTOSUGGEST_STRATEGY=(history completion)
 ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
 ZSH_AUTOSUGGEST_USE_ASYNC=true
-bindkey '^ ' autosuggest-accept    # Ctrl+Space — accept suggestion
-bindkey '^f'  autosuggest-execute  # Ctrl+F     — execute suggestion
+bindkey '^ ' autosuggest-accept    # Ctrl+Space -- accept suggestion
+bindkey '^f'  autosuggest-execute  # Ctrl+F     -- execute suggestion
 
 # ==============================================================================
 # HISTORY SUBSTRING SEARCH
@@ -318,27 +289,16 @@ HISTORY_SUBSTRING_SEARCH_FUZZY=true
 # xterm, iTerm2, and other VTE-based terminals.
 # ==============================================================================
 
-# Standard xterm/VTE: \e[1;3C / \e[1;3D
 bindkey '\e[1;3C' forward-word
 bindkey '\e[1;3D' backward-word
-
-# Termux and some others: bare \eC / \eD
-bindkey '\eC' forward-word
-bindkey '\eD' backward-word
-
-# macOS Terminal.app / older xterm: \e[C with modifier
-bindkey '\e[C' forward-word
-bindkey '\e[D' backward-word
-
-# Emacs-style (Alt+F / Alt+B) — works in almost every terminal
-bindkey '\ef' forward-word
-bindkey '\eb' backward-word
-
-# Delete word (Alt+Backspace / Alt+Delete)
-bindkey '\e^?' backward-delete-word   # Alt+Backspace
-bindkey '\e[3;3~' delete-word         # Alt+Delete
-
-# Jump to start/end of line (Alt+Home/End fallback)
+bindkey '\eC'     forward-word
+bindkey '\eD'     backward-word
+bindkey '\e[C'    forward-word
+bindkey '\e[D'    backward-word
+bindkey '\ef'     forward-word
+bindkey '\eb'     backward-word
+bindkey '\e^?'    backward-delete-word
+bindkey '\e[3;3~' delete-word
 bindkey '\e[1;3H' beginning-of-line
 bindkey '\e[1;3F' end-of-line
 
@@ -410,7 +370,7 @@ export PATH="$HOME/go/bin:$PATH"
 
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
-export SHELL="$(which zsh)"
+export SHELL="$(command -v zsh)"
 
 export PYTHONDONTWRITEBYTECODE=1
 [ -f "$HOME/.pythonrc" ] && export PYTHONSTARTUP="$HOME/.pythonrc"
@@ -422,7 +382,7 @@ export NVM_DIR="$HOME/.nvm"
 export GOPATH="$HOME/go"
 
 # ==============================================================================
-# ALIASES — CORE
+# ALIASES -- CORE
 # ==============================================================================
 
 alias grep='grep --color=auto'
@@ -432,13 +392,11 @@ alias df='df -h'
 alias du='du -h'
 alias free='free -h'
 
-#===Safe operations====
-
+#=== Safe operations (uncomment to enable) ===
 #alias rm='rm -i'
 #alias cp='cp -i'
 #alias mv='mv -i'
 #alias ln='ln -i'
-
 
 alias c='clear'
 alias h='history'
@@ -458,7 +416,7 @@ alias ~='cd ~'
 alias -- -='cd -'
 
 # ==============================================================================
-# ALIASES — EZA (modern ls)
+# ALIASES -- EZA (modern ls)
 # ==============================================================================
 
 if command -v eza &>/dev/null; then
@@ -477,7 +435,7 @@ else
 fi
 
 # ==============================================================================
-# ALIASES — BAT (modern cat)
+# ALIASES -- BAT (modern cat)
 # ==============================================================================
 
 if command -v bat &>/dev/null; then
@@ -489,7 +447,7 @@ elif command -v batcat &>/dev/null; then
 fi
 
 # ==============================================================================
-# ALIASES — FZF
+# ALIASES -- FZF
 # ==============================================================================
 
 if command -v fzf &>/dev/null; then
@@ -513,7 +471,7 @@ if command -v fzf &>/dev/null; then
 fi
 
 # ==============================================================================
-# ALIASES — RIPGREP
+# ALIASES -- RIPGREP
 # ==============================================================================
 
 if command -v rg &>/dev/null; then
@@ -523,7 +481,7 @@ if command -v rg &>/dev/null; then
 fi
 
 # ==============================================================================
-# ALIASES — FD
+# ALIASES -- FD
 # ==============================================================================
 
 if command -v fd &>/dev/null; then
@@ -537,7 +495,7 @@ elif command -v fdfind &>/dev/null; then
 fi
 
 # ==============================================================================
-# ALIASES — TLDR
+# ALIASES -- TLDR
 # ==============================================================================
 
 if command -v tldr &>/dev/null; then
@@ -547,7 +505,7 @@ elif command -v tlrc &>/dev/null; then
 fi
 
 # ==============================================================================
-# ALIASES — MICRO EDITOR
+# ALIASES -- MICRO EDITOR
 # ==============================================================================
 
 if command -v micro &>/dev/null; then
@@ -557,7 +515,7 @@ if command -v micro &>/dev/null; then
 fi
 
 # ==============================================================================
-# ALIASES — GIT
+# ALIASES -- GIT
 # ==============================================================================
 
 alias gs='git status'
@@ -591,7 +549,7 @@ alias gcp='git cherry-pick'
 alias gtag='git tag'
 
 # ==============================================================================
-# ALIASES — DOCKER
+# ALIASES -- DOCKER
 # ==============================================================================
 
 alias d='docker'
@@ -614,7 +572,7 @@ alias dnet='docker network ls'
 alias dvol='docker volume ls'
 
 # ==============================================================================
-# ALIASES — KUBERNETES
+# ALIASES -- KUBERNETES
 # ==============================================================================
 
 if command -v kubectl &>/dev/null; then
@@ -642,7 +600,7 @@ if command -v kubectl &>/dev/null; then
 fi
 
 # ==============================================================================
-# ALIASES — TERRAFORM
+# ALIASES -- TERRAFORM
 # ==============================================================================
 
 if command -v terraform &>/dev/null; then
@@ -664,7 +622,7 @@ if command -v terraform &>/dev/null; then
 fi
 
 # ==============================================================================
-# ALIASES — ANSIBLE
+# ALIASES -- ANSIBLE
 # ==============================================================================
 
 if command -v ansible &>/dev/null; then
@@ -684,7 +642,7 @@ if command -v ansible &>/dev/null; then
 fi
 
 # ==============================================================================
-# ALIASES — SYSTEM
+# ALIASES -- SYSTEM
 # ==============================================================================
 
 alias update='_sysupdate'
@@ -792,21 +750,21 @@ decrypt() {
 extract() {
     if [ -f "$1" ]; then
         case "$1" in
-            *.tar.bz2)  tar xjf "$1"            ;;
-            *.tar.gz)   tar xzf "$1"            ;;
-            *.tar.xz)   tar xJf "$1"            ;;
-            *.tar.zst)  tar --zstd -xf "$1"     ;;
-            *.bz2)      bunzip2 "$1"            ;;
-            *.rar)      unrar x "$1"            ;;
-            *.gz)       gunzip "$1"             ;;
-            *.tar)      tar xf "$1"             ;;
-            *.tbz2)     tar xjf "$1"            ;;
-            *.tgz)      tar xzf "$1"            ;;
-            *.zip)      unzip "$1"              ;;
-            *.Z)        uncompress "$1"         ;;
-            *.7z)       7z x "$1"               ;;
-            *.zst)      unzstd "$1"             ;;
-            *)          echo "Cannot extract '$1' — unknown format." ;;
+            *.tar.bz2)  tar xjf "$1"        ;;
+            *.tar.gz)   tar xzf "$1"        ;;
+            *.tar.xz)   tar xJf "$1"        ;;
+            *.tar.zst)  tar --zstd -xf "$1" ;;
+            *.bz2)      bunzip2 "$1"        ;;
+            *.rar)      unrar x "$1"        ;;
+            *.gz)       gunzip "$1"         ;;
+            *.tar)      tar xf "$1"         ;;
+            *.tbz2)     tar xjf "$1"        ;;
+            *.tgz)      tar xzf "$1"        ;;
+            *.zip)      unzip "$1"          ;;
+            *.Z)        uncompress "$1"     ;;
+            *.7z)       7z x "$1"           ;;
+            *.zst)      unzstd "$1"         ;;
+            *)          echo "Cannot extract '$1' -- unknown format." ;;
         esac
     else
         echo "File not found: $1"
@@ -881,10 +839,9 @@ fi
 # LOCAL OVERRIDES
 # ==============================================================================
 
-# Create ~/.zshrc.local template if it doesn't exist
 if [ ! -f "$HOME/.zshrc.local" ]; then
-    cat > "$HOME/.zshrc.local" << 'EOF'
-# ~/.zshrc.local — Your custom settings
+    cat > "$HOME/.zshrc.local" << 'LOCALEOF'
+# ~/.zshrc.local -- Your custom settings
 # ============================================
 # Add your own aliases, PATH modifications, functions, etc.
 # This file is sourced at the end of the main .zshrc
@@ -893,12 +850,10 @@ if [ ! -f "$HOME/.zshrc.local" ]; then
 # export MY_CUSTOM_VAR="value"
 # alias myalias="my command"
 # myfunc() { echo "Hello from local!" }
-EOF
-    echo "✓ Created ~/.zshrc.local (template)"
+LOCALEOF
 fi
 
 [ -f "$HOME/.zshrc.local" ] && source "$HOME/.zshrc.local"
-echo "✓ Sourced ~/.zshrc.local"
 
 # ==============================================================================
 # FZF OPTIONAL INTEGRATION
@@ -906,7 +861,6 @@ echo "✓ Sourced ~/.zshrc.local"
 
 if command -v fzf &>/dev/null; then
     [ -f "$HOME/.fzf.zsh" ] && source "$HOME/.fzf.zsh"
-    echo "✓ fzf shell integration enabled"
 fi
 
 # ==============================================================================
@@ -915,7 +869,6 @@ fi
 
 if command -v direnv &>/dev/null; then
     eval "$(direnv hook zsh)"
-    echo "✓ direnv integration enabled"
 fi
 
 # ==============================================================================
@@ -927,25 +880,24 @@ if command -v nvim &>/dev/null; then
     export VISUAL='nvim'
     alias vi='nvim'
     alias vim='nvim'
-    echo "✓ nvim editor preferred"
 fi
 
 # ==============================================================================
-# GIT CONFIGURATION
+# GIT CONFIGURATION CHECK
 # ==============================================================================
 
 if command -v git &>/dev/null; then
     if ! git config --global user.name &>/dev/null; then
-        echo "⚠ git user.name not configured. Run: git config --global user.name \"Your Name\""
+        echo "! git user.name not configured. Run: git config --global user.name \"Your Name\""
     fi
     if ! git config --global user.email &>/dev/null; then
-        echo "⚠ git user.email not configured. Run: git config --global user.email \"you@example.com\""
+        echo "! git user.email not configured. Run: git config --global user.email \"you@example.com\""
     fi
 fi
 
 EOF
 
-echo "✓ .zshrc written"
+echo "ok .zshrc written"
 
 # ============================================
 # CHANGE DEFAULT SHELL
@@ -956,15 +908,13 @@ if [[ "${CI:-false}" == "true" ]]; then REPLY="n"; else read -rp "Change default
 echo ""
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    if [ "$SHELL" != "$ZSH_PATH" ]; 
-then
-        if $IS_TERMUX; 
-then
-            chsh -s zsh 2>/dev/null || echo "  ⚠ In Termux run: chsh -s zsh manually if needed."
+    if [ "$SHELL" != "$ZSH_PATH" ]; then
+        if $IS_TERMUX; then
+            chsh -s zsh 2>/dev/null || echo "  ! In Termux run: chsh -s zsh manually if needed."
         else
             chsh -s "$ZSH_PATH"
         fi
-        echo "✓ Default shell changed to ZSH"
+        echo "ok Default shell changed to ZSH"
         echo "  Log out and back in (or run: exec zsh) for it to take effect."
     else
         echo "ZSH is already your default shell."
@@ -980,33 +930,14 @@ fi
 if [[ "${EXTRAS:-}" == "1" || "${EXTRAS:-}" == "true" ]]; then
     echo ""
     echo "=== Installing optional extras ==="
-    
-    # eza (modern ls)
-    if ! command -v eza &>/dev/null; then
-        install_pkg eza
-    fi
-    
-    # bat (modern cat)
-    if ! command -v bat &>/dev/null; then
-        install_pkg bat
-    fi
-    
-    # fd (fast find)
-    if ! command -v fd &>/dev/null; then
-        install_pkg fd
-    fi
-    
-    # ripgrep (fast grep)
-    if ! command -v rg &>/dev/null; then
-        install_pkg ripgrep
-    fi
-    
-    # zoxide (smart cd)
-    if ! command -v zoxide &>/dev/null; then
-        install_pkg zoxide
-    fi
-    
-    echo "✓ Optional extras installed"
+
+    command -v eza     &>/dev/null || install_pkg eza
+    command -v bat     &>/dev/null || install_pkg bat
+    command -v fd      &>/dev/null || install_pkg fd
+    command -v rg      &>/dev/null || install_pkg ripgrep
+    command -v zoxide  &>/dev/null || install_pkg zoxide
+
+    echo "ok Optional extras installed"
     echo "  Run: source ~/.zshrc to enable aliases"
 fi
 
