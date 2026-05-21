@@ -173,40 +173,12 @@ if ! command -v starship &>/dev/null; then
 else
     echo "ok starship already installed"
 fi
+starship preset jetpack -o ~/.config/starship.toml
 
-# Generate starship.toml if it doesn't exist
-if [ ! -f "$HOME/.config/starship.toml" ]; then
-    mkdir -p "$HOME/.config"
-    cat > "$HOME/.config/starship.toml" << 'STARSHIPEOF'
-# Starship prompt configuration
-
-[character]
-success_symbol = "[$](bold green)"
-error_symbol = "[$](bold red)"
-
-[directory]
-truncation_length = 3
-truncate_to_repo = true
-style = "bold purple"
-format = "in [$path](bold purple) [$readable_path](bold cyan) [$readonly](bold red)"
-
-[git_branch]
-symbol = "branch="
-style = "bold 04d"
-
-[git_status]
-style = "bold 04d"
-
-[pkg]
-symbol = "pkg "
-style = "bold 008"
-STARSHIPEOF
-    echo "ok Created ~/.config/starship.toml"
-fi
 
 # ============================================
 # BACKUP EXISTING .zshrc
-# ============================================
+# ===========================================
 
 if [ -f "$HOME/.zshrc" ]; then
     BACKUP="$HOME/.zshrc.backup.$(date +%Y%m%d_%H%M%S)"
