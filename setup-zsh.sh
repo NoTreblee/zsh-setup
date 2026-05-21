@@ -166,7 +166,7 @@ if ! command -v starship &>/dev/null; then
     case "$PKG_MANAGER" in
         termux|apk|brew) install_pkg starship ;;
         *)
-            curl -sS https://starship.rs/install.sh | sh
+            curl -sS https://starship.rs/install.sh | sh -s -- --yes
             ;;
     esac
     echo "ok starship installed"
