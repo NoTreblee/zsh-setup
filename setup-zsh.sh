@@ -166,14 +166,23 @@ if ! command -v starship &>/dev/null; then
     case "$PKG_MANAGER" in
         termux|apk|brew) install_pkg starship ;;
         *)
-            curl -sS https://starship.rs/install.sh | sh -s -- --yes
+            curl -sS https://starship.rs/install.sh | sh
             ;;
     esac
     echo "ok starship installed"
 else
     echo "ok starship already installed"
 fi
-starship preset jetpack -o ~/.config/starship.toml
+
+STARSHIP_CFG="$HOME/.config/starship.toml"
+if [[ ! -f "$STARSHIP_CFG" ]]; then
+    echo "Applying starship jetpack preset..."
+    mkdir -p "$(dirname "$STARSHIP_CFG")"
+    starship preset jetpack -o "$STARSHIP_CFG"
+    echo "ok starship config created"
+else
+    echo "ok starship config already exists, skipping preset"
+fi
 
 
 # ============================================
