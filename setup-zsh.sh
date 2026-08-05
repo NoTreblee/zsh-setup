@@ -48,11 +48,25 @@ install_pkg() {
     esac
 }
 
+# Try several package names for the same tool (they differ per distro,
+# e.g. delta is "git-delta" on pacman/apt/dnf/brew but "delta" on apk).
+# Never fatal: the generated .zshrc guards every tool with `command -v`.
+install_first() {
+    local candidate
+    for candidate in "$@"; do
+        if install_pkg "$candidate" >/dev/null 2>&1; then
+            echo "  ok installed $candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # Update package lists
 update_pkg_lists() {
     case "$PKG_MANAGER" in
         termux) pkg update -y ;;
-        apk)    apk update ;;
+        apk)    sudo apk update ;;
         apt)    sudo apt-get update ;;
         dnf)    sudo dnf makecache ;;
         yum)    sudo yum makecache ;;
@@ -95,18 +109,23 @@ else
     echo "ok Oh My Zsh already installed"
 fi
 
+ZSH_CUSTOM_DIR="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
+
 # ============================================
-# PLUGINS
+# PLUGINS AND THEME
 # ============================================
 
+# $3 = "plugins" (default) or "themes"
 update_plugin() {
     local name="$1"
     local url="$2"
-    local plugin_path="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/$name"
+    local kind="${3:-plugins}"
+    local plugin_path="$ZSH_CUSTOM_DIR/$kind/$name"
 
     if [ ! -d "$plugin_path" ]; then
         echo "Installing $name..."
-        git clone "$url" "$plugin_path"
+        # --recurse-submodules matters for zsh-abbr (bundles zsh-job-queue).
+        git clone --depth 1 --recurse-submodules "$url" "$plugin_path"
         echo "ok $name installed"
     else
         echo "Updating $name..."
@@ -115,9 +134,18 @@ update_plugin() {
 }
 
 echo "Installing ZSH plugins..."
-update_plugin "zsh-autosuggestions"        "https://github.com/zsh-users/zsh-autosuggestions"
-update_plugin "zsh-syntax-highlighting"    "https://github.com/zsh-users/zsh-syntax-highlighting.git"
+update_plugin "zsh-autosuggestions"          "https://github.com/zsh-users/zsh-autosuggestions"
+update_plugin "zsh-syntax-highlighting"      "https://github.com/zsh-users/zsh-syntax-highlighting.git"
 update_plugin "zsh-history-substring-search" "https://github.com/zsh-users/zsh-history-substring-search.git"
+update_plugin "zsh-completions"              "https://github.com/zsh-users/zsh-completions.git"
+update_plugin "fzf-tab"                      "https://github.com/Aloxaf/fzf-tab.git"
+update_plugin "zsh-autopair"                 "https://github.com/hlissner/zsh-autopair.git"
+update_plugin "zsh-you-should-use"           "https://github.com/MichaelAquilina/zsh-you-should-use.git"
+update_plugin "forgit"                       "https://github.com/wfxr/forgit.git"
+update_plugin "zsh-abbr"                     "https://github.com/olets/zsh-abbr.git"
+
+echo "Installing powerlevel10k theme..."
+update_plugin "powerlevel10k" "https://github.com/romkatv/powerlevel10k.git" "themes"
 
 # ============================================
 # FZF
@@ -126,7 +154,7 @@ update_plugin "zsh-history-substring-search" "https://github.com/zsh-users/zsh-h
 if ! command -v fzf &>/dev/null; then
     echo "Installing fzf..."
     case "$PKG_MANAGER" in
-        termux|apt|dnf|pacman|zypper) install_pkg fzf ;;
+        termux|apk|apt|dnf|pacman|zypper) install_pkg fzf ;;
         yum|brew)
             if ! install_pkg fzf 2>/dev/null; then
                 git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
@@ -146,7 +174,7 @@ fi
 if ! command -v micro &>/dev/null; then
     echo "Installing micro..."
     case "$PKG_MANAGER" in
-        termux|apt|dnf|pacman|zypper|brew) install_pkg micro ;;
+        termux|apk|apt|dnf|pacman|zypper|brew) install_pkg micro ;;
         yum)
             curl https://getmic.ro | bash
             sudo mv micro /usr/local/bin/ 2>/dev/null || mv micro "$HOME/.local/bin/"
@@ -158,41 +186,58 @@ else
 fi
 
 # ============================================
-# STARSHIP
+# CLI TOOLS USED BY THE CONFIG
+# atuin  -- Ctrl-R history search (replaces the default reverse-i-search)
+# delta  -- side-by-side git/diff pager
+# pay-respects -- `f` re-runs the previous command with a suggested fix
+# All best-effort: the .zshrc guards each one with `command -v`.
 # ============================================
 
-if ! command -v starship &>/dev/null; then
-    echo "Installing starship..."
-    case "$PKG_MANAGER" in
-        termux|apk|brew) install_pkg starship ;;
-        *)
-            curl -sS https://starship.rs/install.sh | sh -s -- --yes
-            ;;
-    esac
-    echo "ok starship installed"
+echo ""
+echo "Installing CLI tools..."
+
+if ! command -v atuin &>/dev/null; then
+    if ! install_first atuin; then
+        echo "  -> atuin not packaged here, using upstream installer..."
+        curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh || echo "  ! atuin install failed (non-fatal)"
+    fi
 else
-    echo "ok starship already installed"
+    echo "  ok atuin already installed"
 fi
 
-STARSHIP_CFG="$HOME/.config/starship.toml"
-if [[ ! -f "$STARSHIP_CFG" ]]; then
-    echo "Applying starship jetpack preset..."
-    mkdir -p "$(dirname "$STARSHIP_CFG")"
-    starship preset jetpack -o "$STARSHIP_CFG"
-    echo "ok starship config created"
+if ! command -v delta &>/dev/null; then
+    install_first git-delta delta || echo "  ! delta not available here (non-fatal)"
 else
-    echo "ok starship config already exists, skipping preset"
+    echo "  ok delta already installed"
 fi
 
+if ! command -v pay-respects &>/dev/null; then
+    # Not in most distro repos. Package first, then cargo, then give up.
+    if ! install_first pay-respects; then
+        if command -v cargo &>/dev/null; then
+            cargo install pay-respects || echo "  ! pay-respects build failed (non-fatal)"
+        else
+            echo "  ! pay-respects skipped (no package, no cargo). See https://github.com/iffse/pay-respects"
+        fi
+    fi
+else
+    echo "  ok pay-respects already installed"
+fi
 
 # ============================================
 # BACKUP EXISTING .zshrc
-# ===========================================
+# ============================================
 
 if [ -f "$HOME/.zshrc" ]; then
     BACKUP="$HOME/.zshrc.backup.$(date +%Y%m%d_%H%M%S)"
     cp "$HOME/.zshrc" "$BACKUP"
     echo "ok Backed up existing .zshrc -> $BACKUP"
+    if [ ! -w "$HOME/.zshrc" ]; then
+        echo "  ! Existing .zshrc was write-protected; replacing it anyway (backup above)."
+    fi
+    # Plain `cat >` fails on a read-only file, which used to abort the script
+    # halfway through (set -e) after packages were already installed.
+    rm -f "$HOME/.zshrc"
     find "$HOME" -maxdepth 1 -name ".zshrc.backup.*" -type f -mtime +30 -delete 2>/dev/null || true
 fi
 
@@ -209,18 +254,68 @@ cat > ~/.zshrc << 'EOF'
 # .zshrc -- generated by setup-zsh.sh
 # ==============================================================================
 
-export ZSH="$HOME/.oh-my-zsh"
+# ==============================================================================
+# POWERLEVEL10K INSTANT PROMPT
+# Must stay at the very top: nothing may write to stdout before it.
+# ==============================================================================
 
-ZSH_THEME=""
+if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+    source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+fi
+
+# ==============================================================================
+# PATHS (early: the `command -v` guards below need cargo/local bins on PATH)
+# ==============================================================================
+
+export PATH="$HOME/.local/bin:$PATH"
+export PATH="$HOME/bin:$PATH"
+export PATH="/usr/local/bin:$PATH"
+export PATH="/usr/local/sbin:$PATH"
+export PATH="$HOME/.cargo/bin:$PATH"
+export PATH="$HOME/go/bin:$PATH"
+
+export PNPM_HOME="$HOME/.local/share/pnpm"
+export PATH="$PNPM_HOME/bin:$PATH"
+
+typeset -U path cdpath fpath manpath
+
+export ZSH="$HOME/.oh-my-zsh"
+ZSH_CUSTOM="${ZSH_CUSTOM:-$ZSH/custom}"
+
+ZSH_THEME="powerlevel10k/powerlevel10k"
 
 DISABLE_UPDATE_PROMPT="true"
-UPDATE_ZSH_DAYS=7
+zstyle ':omz:update' mode auto
+zstyle ':omz:update' frequency 7
 DISABLE_MAGIC_FUNCTIONS="true"
 DISABLE_LS_COLORS="false"
-ENABLE_CORRECTION="true"
 COMPLETION_WAITING_DOTS="true"
 
-# Plugins -- zsh-syntax-highlighting MUST be last
+# ==============================================================================
+# PLUGIN CONFIG THAT MUST BE SET BEFORE THE PLUGINS LOAD
+# ==============================================================================
+
+# zsh-completions ships its functions in src/, which the plugins array does not
+# add to fpath -- do it by hand, before Oh My Zsh runs compinit.
+fpath+=( "$ZSH_CUSTOM/plugins/zsh-completions/src" )
+fpath+=( /usr/share/zsh/site-functions "$HOME/.local/share/zsh/site-functions" )
+
+# forgit otherwise grabs ga/gd/gco/gss/glo... which collide with the git aliases below.
+export FORGIT_NO_ALIASES=1
+
+# magic-enter: pressing Enter on an empty line runs one of these.
+MAGIC_ENTER_GIT_COMMAND="git status -sb ."
+MAGIC_ENTER_OTHER_COMMAND="eza --icons"
+
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#8a8a8a,bold"
+ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
+ZSH_AUTOSUGGEST_USE_ASYNC=true
+
+# Plugin order is load order.
+#   fzf-tab               -- after compinit, before anything that wraps widgets
+#   zsh-syntax-highlighting -- after autosuggestions
+#   zsh-history-substring-search -- after syntax highlighting (upstream requirement)
 plugins=(
     git
     sudo
@@ -233,26 +328,30 @@ plugins=(
     kubectl
     terraform
     fzf
+    magic-enter
+    fzf-tab
+    zsh-autopair
+    zsh-you-should-use
+    forgit
+    zsh-abbr
     zsh-autosuggestions
-    zsh-history-substring-search
     zsh-syntax-highlighting
+    zsh-history-substring-search
 )
 
 source $ZSH/oh-my-zsh.sh
 
+[[ -r "$HOME/.p10k.zsh" ]] && source "$HOME/.p10k.zsh"
+
 # ==============================================================================
-# AUTOSUGGESTIONS
+# KEYBINDINGS -- AUTOSUGGESTIONS
 # ==============================================================================
 
-ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#8a8a8a,bold"
-ZSH_AUTOSUGGEST_STRATEGY=(history completion)
-ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
-ZSH_AUTOSUGGEST_USE_ASYNC=true
 bindkey '^ ' autosuggest-accept    # Ctrl+Space -- accept suggestion
-bindkey '^f'  autosuggest-execute  # Ctrl+F     -- execute suggestion
+bindkey '^f' autosuggest-execute   # Ctrl+F     -- execute suggestion
 
 # ==============================================================================
-# HISTORY SUBSTRING SEARCH
+# KEYBINDINGS -- HISTORY SUBSTRING SEARCH
 # ==============================================================================
 
 bindkey '^[[A' history-substring-search-up
@@ -264,24 +363,31 @@ HISTORY_SUBSTRING_SEARCH_HIGHLIGHT_NOT_FOUND='bg=red,fg=black,bold'
 HISTORY_SUBSTRING_SEARCH_FUZZY=true
 
 # ==============================================================================
-# WORD NAVIGATION (Alt+Arrow)
+# WORD NAVIGATION (Alt+Arrow and Ctrl+Arrow)
 # Different terminals send different escape sequences for Alt+Arrow.
-# Binding all known variants ensures it works in Termux, Alacritty,
+# Binding all known variants ensures it works in Termux, Alacritty, Ghostty,
 # xterm, iTerm2, and other VTE-based terminals.
 # ==============================================================================
 
 bindkey '\e[1;3C' forward-word
 bindkey '\e[1;3D' backward-word
+bindkey '\e[1;5C' forward-word
+bindkey '\e[1;5D' backward-word
 bindkey '\eC'     forward-word
 bindkey '\eD'     backward-word
-bindkey '\e[C'    forward-word
-bindkey '\e[D'    backward-word
 bindkey '\ef'     forward-word
 bindkey '\eb'     backward-word
-bindkey '\e^?'    backward-delete-word
 bindkey '\e[3;3~' delete-word
 bindkey '\e[1;3H' beginning-of-line
 bindkey '\e[1;3F' end-of-line
+
+# Alt+Backspace stops at path separators instead of eating the whole path.
+backward-kill-dir() {
+    local WORDCHARS="${WORDCHARS//\//}"
+    zle backward-delete-word
+}
+zle -N backward-kill-dir
+bindkey '\e^?' backward-kill-dir
 
 # ==============================================================================
 # SYNTAX HIGHLIGHTING
@@ -319,38 +425,55 @@ ZSH_HIGHLIGHT_STYLES[arg0]='fg=cyan'
 HISTSIZE=100000
 SAVEHIST=100000
 HISTFILE=~/.zsh_history
+setopt HIST_FCNTL_LOCK
+setopt HIST_EXPIRE_DUPS_FIRST
 setopt HIST_IGNORE_DUPS
 setopt HIST_IGNORE_SPACE
 setopt HIST_FIND_NO_DUPS
+setopt HIST_SAVE_NO_DUPS
 setopt HIST_REDUCE_BLANKS
-setopt INC_APPEND_HISTORY
 setopt SHARE_HISTORY
+setopt NO_APPEND_HISTORY
+setopt NO_EXTENDED_HISTORY
+setopt NO_HIST_IGNORE_ALL_DUPS
 
 setopt AUTO_CD
-setopt CORRECT
-setopt CORRECT_ALL
 setopt EXTENDED_GLOB
 setopt NO_BEEP
 setopt INTERACTIVE_COMMENTS
 
-zstyle ':completion:*' menu select
+# Autocorrect prompts ("did you mean...") are more noise than help. Oh My Zsh
+# turns CORRECT on for some plugins, so unset it after the framework loads.
+unsetopt correct correct_all
+
+# ==============================================================================
+# COMPLETION STYLING
+# fzf-tab replaces the completion menu, so `menu select` must stay off --
+# with it set, fzf-tab silently does nothing. Oh My Zsh sets it under the more
+# specific pattern ':completion:*:*:*:*:*', which beats a plain ':completion:*'
+# override, so delete that style before setting ours.
+# ==============================================================================
+
+zstyle -d ':completion:*:*:*:*:*' menu
+zstyle ':completion:*' menu no
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|[._-]=* r:|=*' 'l:|=* r:|=*'
 zstyle ':completion:*' list-colors ''
 zstyle ':completion:*:*:kill:*:processes' list-colors '=(#b) #([0-9]#)*=0=01;31'
 
+zstyle ':fzf-tab:*' switch-group ',' '.'
+zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza -1 --icons --color=always $realpath 2>/dev/null || ls -1 $realpath'
+
 # ==============================================================================
-# PATHS AND ENVIRONMENT
+# ENVIRONMENT
 # ==============================================================================
 
-export PATH="$HOME/.local/bin:$PATH"
-export PATH="$HOME/bin:$PATH"
-export PATH="/usr/local/bin:$PATH"
-export PATH="/usr/local/sbin:$PATH"
-export PATH="$HOME/.cargo/bin:$PATH"
-export PATH="$HOME/go/bin:$PATH"
+# Only export LANG if the locale actually exists, otherwise every command that
+# reads it warns. LC_ALL is deliberately not set -- it overrides every other
+# LC_* variable, including ones the desktop session sets on purpose.
+if locale -a 2>/dev/null | grep -qiE '^en_US\.?utf-?8$'; then
+    export LANG=en_US.UTF-8
+fi
 
-export LANG=en_US.UTF-8
-export LC_ALL=en_US.UTF-8
 export SHELL="$(command -v zsh)"
 
 export PYTHONDONTWRITEBYTECODE=1
@@ -401,18 +524,18 @@ alias -- -='cd -'
 # ==============================================================================
 
 if command -v eza &>/dev/null; then
-    alias ls='eza --color=auto --group-directories-first'
-    alias ll='eza -lah --group-directories-first --git'
-    alias la='eza -a --group-directories-first'
-    alias l='eza -F --group-directories-first'
+    alias ls='eza --icons -F --group-directories-first'
+    alias l='eza --icons --color=auto --group-directories-first'
+    alias ll='eza --icons -lah --group-directories-first --git'
+    alias la='eza --icons -a --group-directories-first'
     alias lt='eza --tree --level=2'
     alias ltt='eza --tree --level=3'
     alias lttt='eza --tree --level=4'
 else
     alias ls='ls --color=auto'
+    alias l='ls -CF'
     alias ll='ls -lah'
     alias la='ls -A'
-    alias l='ls -CF'
 fi
 
 # ==============================================================================
@@ -423,8 +546,26 @@ if command -v bat &>/dev/null; then
     alias cat='bat -pP'
     export MANPAGER="sh -c 'col -bx | bat -l man -p'"
 elif command -v batcat &>/dev/null; then
-    alias cat='batcat'
+    alias cat='batcat -pP'
     export MANPAGER="sh -c 'col -bx | batcat -l man -p'"
+else
+    # No bat: fall back to colouring man pages through less directly.
+    # (Pointless when MANPAGER is set above -- less never sees these.)
+    export LESS_TERMCAP_mb=$'\e[1;31m'
+    export LESS_TERMCAP_md=$'\e[1;36m'
+    export LESS_TERMCAP_me=$'\e[0m'
+    export LESS_TERMCAP_so=$'\e[01;44;33m'
+    export LESS_TERMCAP_se=$'\e[0m'
+    export LESS_TERMCAP_us=$'\e[1;32m'
+    export LESS_TERMCAP_ue=$'\e[0m'
+fi
+
+# ==============================================================================
+# ALIASES -- DELTA (git/diff pager)
+# ==============================================================================
+
+if command -v delta &>/dev/null; then
+    alias diff='delta'
 fi
 
 # ==============================================================================
@@ -496,6 +637,21 @@ if command -v micro &>/dev/null; then
 fi
 
 # ==============================================================================
+# ALIASES -- FORGIT (interactive git, FORGIT_NO_ALIASES is set above)
+# ==============================================================================
+
+if (( $+functions[forgit::add] )); then
+    alias fga='forgit::add'
+    alias fgd='forgit::diff'
+    alias fglo='forgit::log'
+    alias fgco='forgit::checkout::branch'
+    alias fgcf='forgit::checkout::file'
+    alias fgss='forgit::stash::show'
+    alias fgclean='forgit::clean'
+    alias fgi='forgit::ignore'
+fi
+
+# ==============================================================================
 # ALIASES -- GIT
 # ==============================================================================
 
@@ -558,22 +714,23 @@ alias dvol='docker volume ls'
 
 if command -v kubectl &>/dev/null; then
     alias k='kubectl'
+    alias kg='kubectl get'
     alias kgp='kubectl get pods'
     alias kgpa='kubectl get pods -A'
     alias kgs='kubectl get svc'
     alias kgsa='kubectl get svc -A'
-    alias kgd='kubectl get deployments'
+    alias kgd='kubectl get deployment'
     alias kgda='kubectl get deployments -A'
     alias kgn='kubectl get nodes'
     alias kgns='kubectl get namespaces'
-    alias kd='kubectl describe'
+    alias kdesc='kubectl describe'
     alias kdp='kubectl describe pod'
     alias kds='kubectl describe svc'
     alias kdn='kubectl describe node'
-    alias kl='kubectl logs'
-    alias klf='kubectl logs -f'
-    alias ke='kubectl exec -it'
-    alias ka='kubectl apply -f'
+    alias klog='kubectl logs'
+    alias klogf='kubectl logs -f'
+    alias kexec='kubectl exec -it'
+    alias kaf='kubectl apply -f'
     alias kdel='kubectl delete'
     alias kctx='kubectl config use-context'
     alias kns='kubectl config set-context --current --namespace'
@@ -623,12 +780,34 @@ if command -v ansible &>/dev/null; then
 fi
 
 # ==============================================================================
+# ALIASES -- SYSTEMD / JOURNAL
+# sc-* and scu-* come from the Oh My Zsh `systemd` plugin.
+# ==============================================================================
+
+if command -v journalctl &>/dev/null; then
+    alias jc='journalctl'
+    alias jcf='journalctl -f'
+    alias jcu='journalctl --user'
+fi
+
+# ==============================================================================
 # ALIASES -- SYSTEM
 # ==============================================================================
 
 alias update='_sysupdate'
 alias clean='_sysclean'
 alias sysinfo='_sysinfo'
+
+# ==============================================================================
+# ABBREVIATIONS (zsh-abbr: expand inline as you type)
+# ==============================================================================
+
+if (( $+functions[abbr] )); then
+    abbr -S --quiet gpf='git push --force-with-lease' 2>/dev/null
+    abbr -S --quiet gca='git commit --amend' 2>/dev/null
+    abbr -S --quiet gundo='git reset --soft HEAD~1' 2>/dev/null
+    abbr -S --quiet please='sudo' 2>/dev/null
+fi
 
 # ==============================================================================
 # FUNCTIONS
@@ -640,30 +819,43 @@ _sysupdate() {
     elif command -v apt-get &>/dev/null; then
         sudo apt-get update && sudo apt-get upgrade -y
     elif command -v dnf &>/dev/null; then
-        sudo dnf upgrade -y
+        sudo dnf upgrade --refresh -y
     elif command -v pacman &>/dev/null; then
         sudo pacman -Syu
     elif command -v zypper &>/dev/null; then
         sudo zypper update -y
     elif command -v yum &>/dev/null; then
         sudo yum update -y
+    elif command -v apk &>/dev/null; then
+        sudo apk upgrade
     elif command -v brew &>/dev/null; then
         brew update && brew upgrade
     else
         echo "Unknown package manager."
     fi
+    command -v flatpak &>/dev/null && flatpak update -y
 }
 
 _sysclean() {
     if command -v apt-get &>/dev/null; then
         sudo apt-get autoremove -y && sudo apt-get autoclean
     elif command -v dnf &>/dev/null; then
-        sudo dnf autoremove -y
+        sudo dnf autoremove -y && sudo dnf clean all
     elif command -v pacman &>/dev/null; then
-        sudo pacman -Rns $(pacman -Qtdq) 2>/dev/null || echo "Nothing to clean."
+        local orphans
+        orphans=$(pacman -Qtdq 2>/dev/null) || true
+        if [ -n "$orphans" ]; then
+            echo "$orphans" | sudo pacman -Rns -
+        else
+            echo "No orphaned packages."
+        fi
+        sudo pacman -Sc --noconfirm
+    elif command -v zypper &>/dev/null; then
+        sudo zypper clean -a
     elif command -v brew &>/dev/null; then
         brew cleanup
     fi
+    command -v flatpak &>/dev/null && flatpak uninstall --unused -y
 }
 
 _sysinfo() {
@@ -708,7 +900,7 @@ search() {
 }
 
 countlines() {
-    find . -name "*.$1" | xargs wc -l
+    find . -name "*.$1" -print0 | xargs -0 wc -l
 }
 
 myip() {
@@ -809,39 +1001,19 @@ if command -v zoxide &>/dev/null; then
 fi
 
 # ==============================================================================
-# STARSHIP PROMPT
+# ATUIN (shell history; Ctrl-R only -- Up stays with substring search)
 # ==============================================================================
 
-if command -v starship &>/dev/null; then
-    eval "$(starship init zsh)"
+if [[ $options[zle] = on ]] && command -v atuin &>/dev/null; then
+    eval "$(atuin init zsh --disable-up-arrow)"
 fi
 
 # ==============================================================================
-# LOCAL OVERRIDES
+# PAY-RESPECTS: `f` re-runs the previous command with a suggested fix
 # ==============================================================================
 
-if [ ! -f "$HOME/.zshrc.local" ]; then
-    cat > "$HOME/.zshrc.local" << 'LOCALEOF'
-# ~/.zshrc.local -- Your custom settings
-# ============================================
-# Add your own aliases, PATH modifications, functions, etc.
-# This file is sourced at the end of the main .zshrc
-
-# Example:
-# export MY_CUSTOM_VAR="value"
-# alias myalias="my command"
-# myfunc() { echo "Hello from local!" }
-LOCALEOF
-fi
-
-[ -f "$HOME/.zshrc.local" ] && source "$HOME/.zshrc.local"
-
-# ==============================================================================
-# FZF OPTIONAL INTEGRATION
-# ==============================================================================
-
-if command -v fzf &>/dev/null; then
-    [ -f "$HOME/.fzf.zsh" ] && source "$HOME/.fzf.zsh"
+if command -v pay-respects &>/dev/null; then
+    eval "$(pay-respects zsh --alias)"
 fi
 
 # ==============================================================================
@@ -850,6 +1022,14 @@ fi
 
 if command -v direnv &>/dev/null; then
     eval "$(direnv hook zsh)"
+fi
+
+# ==============================================================================
+# GHOSTTY SHELL INTEGRATION
+# ==============================================================================
+
+if [[ -n $GHOSTTY_RESOURCES_DIR ]]; then
+    source "$GHOSTTY_RESOURCES_DIR"/shell-integration/zsh/ghostty-integration
 fi
 
 # ==============================================================================
@@ -876,6 +1056,35 @@ if command -v git &>/dev/null; then
     fi
 fi
 
+# ==============================================================================
+# LOCAL OVERRIDES (machine-specific aliases, secrets, host quirks)
+# ==============================================================================
+
+if [ ! -f "$HOME/.zshrc.local" ]; then
+    cat > "$HOME/.zshrc.local" << 'LOCALEOF'
+# ~/.zshrc.local -- Your custom settings
+# ============================================
+# Add your own aliases, PATH modifications, functions, etc.
+# This file is sourced at the end of the main .zshrc and is never overwritten
+# by setup-zsh.sh, so machine-specific things belong here.
+
+# Example:
+# export MY_CUSTOM_VAR="value"
+# alias myalias="my command"
+# alias box-start="ssh -t user@192.168.0.10 '~/start.sh'"
+# myfunc() { echo "Hello from local!" }
+LOCALEOF
+fi
+
+[ -f "$HOME/.zshrc.local" ] && source "$HOME/.zshrc.local"
+
+# ==============================================================================
+# FZF OPTIONAL EXTRA CONFIG (only if the fzf installer wrote one)
+# ==============================================================================
+
+if command -v fzf &>/dev/null; then
+    [ -f "$HOME/.fzf.zsh" ] && source "$HOME/.fzf.zsh"
+fi
 EOF
 
 echo "ok .zshrc written"
@@ -912,13 +1121,13 @@ if [[ "${EXTRAS:-}" == "1" || "${EXTRAS:-}" == "true" ]]; then
     echo ""
     echo "=== Installing optional extras ==="
 
-    command -v eza     &>/dev/null || install_pkg eza
-    command -v bat     &>/dev/null || install_pkg bat
-    command -v fd      &>/dev/null || install_pkg fd
-    command -v rg      &>/dev/null || install_pkg ripgrep
-    command -v zoxide  &>/dev/null || install_pkg zoxide
+    command -v eza     &>/dev/null || install_first eza || echo "  ! eza not available (non-fatal)"
+    command -v bat     &>/dev/null || install_first bat || echo "  ! bat not available (non-fatal)"
+    command -v fd      &>/dev/null || install_first fd fd-find || echo "  ! fd not available (non-fatal)"
+    command -v rg      &>/dev/null || install_first ripgrep || echo "  ! ripgrep not available (non-fatal)"
+    command -v zoxide  &>/dev/null || install_first zoxide || echo "  ! zoxide not available (non-fatal)"
 
-    echo "ok Optional extras installed"
+    echo "ok Optional extras done"
     echo "  Run: source ~/.zshrc to enable aliases"
 fi
 
@@ -930,4 +1139,7 @@ echo ""
 echo "-------- Setup complete! --------"
 echo ""
 echo "Run:  exec zsh"
+echo ""
+echo "First start runs the powerlevel10k wizard. It needs a Nerd Font"
+echo "(MesloLGS NF) in your terminal. Re-run it any time with: p10k configure"
 echo ""
